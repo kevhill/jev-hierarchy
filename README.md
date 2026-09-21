@@ -2,17 +2,19 @@
 
 TypeSafe [Jev](https://docs.typesafe.ai/) is a System One model: you give it **state** and typed **questions**, and it returns a forced **Choice** — one winner, a probability on every option, and a confidence. It does not generate text.
 
-This repo walks those Choices **down a tree** instead of over a flat label set. The walk is generic. The 20 Newsgroups files are only one example of how to call it.
+This library walks those Choices **down a tree** instead of over a flat label set. Core code lives in `src/jev_hierarchy`. The 20 Newsgroups files in `demo.py` are only one example of how to call it.
 
 ## Usage
 
-```text
-walk_hierarchy(state, hierarchy, cutoff, *, client)
+```python
+from jev_hierarchy import Node, TypeSafeJevClient, walk_hierarchy
 ```
+
+**`walk_hierarchy(state, hierarchy, cutoff, *, client)`**
 
 **`state`** is whatever Jev should judge. The walker does not interpret it. It is forwarded unchanged on every Choice, the same way the TypeSafe API accepts state: a string, a JSON object, or an array. A support ticket, an email thread, a structured record, or a newsgroup post are all valid.
 
-**`hierarchy`** is a rooted tree of frozen `Node`s. A node is a category, not the document:
+**`hierarchy`** is a rooted tree of frozen `Node`s. You build it in your own code; the library does not ship a taxonomy. A node is a category, not the document:
 
 | Field | Role |
 | --- | --- |
@@ -26,6 +28,50 @@ There is no parent pointer. Parenthood is “who listed you in `children`”. Le
 **`cutoff`** is a walk policy, not a field on `Node`. Compare it to sibling probability `p(child | parent)`.
 
 **`client`** is how you talk to Jev (`TypeSafeJevClient` or a fake in tests).
+
+### Build a tree and walk it
+
+Nest `Node`s. Empty `children` makes a leaf.
+
+```python
+from jev_hierarchy import Node, TypeSafeJevClient, walk_hierarchy
+
+tree = Node(
+    label="News",
+    description="A Usenet-style topical post",
+    children=(
+        Node(
+            label="Science",
+            description="Scientific or technical discussion",
+            children=(
+                Node(label="Space", description="Astronomy, spacecraft, NASA, or orbital mechanics"),
+                Node(label="Medicine", description="Health, disease, treatment, or medical advice"),
+            ),
+        ),
+        Node(
+            label="Recreation",
+            description="Hobbies, vehicles, or sports",
+            children=(
+                Node(label="Autos", description="Cars, driving, repairs, or automotive products"),
+                Node(label="Baseball", description="Baseball games, teams, players, or stats"),
+            ),
+        ),
+    ),
+)
+
+client = TypeSafeJevClient(model="jev-latest")
+result = walk_hierarchy(
+    "Has NASA published a revised date for bringing Perseverance samples back?",
+    tree,
+    cutoff=0.3,
+    client=client,
+)
+
+# Path mass at each visited node; sibling simplex at each queried parent.
+print(result.node_mass)
+print(result.distributions)
+print(result.choices)
+```
 
 The walk:
 
@@ -63,11 +109,7 @@ The process does not load `.env` by itself. Pass it with `uv run --env-file .env
 
 ## Demo
 
-The example in this repo classifies short **20 Newsgroups**-style posts.
-
-- `hierarchy.py` — compact tree: `News` → Computer / Recreation / Science / Talk → eight leaves
-- `posts.py` — sample posts plus a gold **label** (not a hash) so the CLI can mark the expected leaf
-- `demo.py` — CLI that calls `walk_hierarchy` with each post as `state`
+`demo.py` is a script, not part of the library. It classifies short **20 Newsgroups**-style posts with a compact tree (`News` → Computer / Recreation / Science / Talk → eight leaves) defined in that file.
 
 Needs [uv](https://docs.astral.sh/uv/).
 

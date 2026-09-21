@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from hierarchy import Node, child_criteria
-from jev import ChoiceResult, JevClient
+from .hierarchy import Node, child_criteria
+from .jev import ChoiceResult, JevClient
 
 
 @dataclass

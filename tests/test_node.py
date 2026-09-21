@@ -6,7 +6,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from hierarchy import Node, node_id
+from jev_hierarchy import Node, node_id
 
 
 def test_id_is_stable_hash_of_label_and_description():

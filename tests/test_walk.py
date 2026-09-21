@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from hierarchy import Node
-from jev import ChoiceResult, ScriptedJevClient
-from walk import walk_hierarchy
+from jev_hierarchy import ChoiceResult, Node, ScriptedJevClient, walk_hierarchy
 
 
 def _tree() -> Node:

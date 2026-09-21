@@ -10,16 +10,125 @@ import argparse
 import os
 import sys
 from collections.abc import Sequence
+from dataclasses import dataclass
 
-from hierarchy import HIERARCHY, Node
-from jev import TypeSafeJevClient
-from posts import POSTS, Post
-from walk import WalkResult, walk_hierarchy
+from jev_hierarchy import Node, TypeSafeJevClient, WalkResult, walk_hierarchy
 
 KEY_HELP = (
     "Set TYPESAFE_API_KEY (https://console.typesafe.ai/keys) and retry. "
     "Example: export TYPESAFE_API_KEY=... "
     "or uv run --env-file .env python demo.py"
+)
+
+# Classic 20 Newsgroups coarse groups, trimmed to eight leaves.
+HIERARCHY = Node(
+    label="News",
+    description="A Usenet-style topical post",
+    children=(
+        Node(
+            label="Computer",
+            description="Hardware, graphics, or operating systems",
+            children=(
+                Node(
+                    label="Graphics",
+                    description="Computer graphics, rendering, images, or visualization",
+                ),
+                Node(
+                    label="Windows / X",
+                    description="Microsoft Windows or X Window System software",
+                ),
+            ),
+        ),
+        Node(
+            label="Recreation",
+            description="Hobbies, vehicles, or sports",
+            children=(
+                Node(
+                    label="Autos",
+                    description="Cars, driving, repairs, or automotive products",
+                ),
+                Node(
+                    label="Baseball",
+                    description="Baseball games, teams, players, or stats",
+                ),
+            ),
+        ),
+        Node(
+            label="Science",
+            description="Scientific or technical discussion",
+            children=(
+                Node(
+                    label="Space",
+                    description="Astronomy, spacecraft, NASA, or orbital mechanics",
+                ),
+                Node(
+                    label="Medicine",
+                    description="Health, disease, treatment, or medical advice",
+                ),
+            ),
+        ),
+        Node(
+            label="Talk",
+            description="Debate, politics, or religion",
+            children=(
+                Node(
+                    label="Guns",
+                    description="Firearms policy, gun rights, or related politics",
+                ),
+                Node(
+                    label="Religion",
+                    description="Religious belief, practice, or theology",
+                ),
+            ),
+        ),
+    ),
+)
+
+
+@dataclass(frozen=True)
+class Post:
+    id: str
+    gold_label: str
+    text: str
+
+
+POSTS: tuple[Post, ...] = (
+    Post(
+        id="p1",
+        gold_label="Space",
+        text=(
+            "Subject: Mars sample return timeline\n"
+            "Has NASA published a revised date for bringing Perseverance samples back? "
+            "I keep seeing 2033 and 2035 in different articles."
+        ),
+    ),
+    Post(
+        id="p2",
+        gold_label="Baseball",
+        text=(
+            "Subject: wild card race\n"
+            "If the Sox win tonight and the Jays lose, do they clinch a wild card, "
+            "or is it still down to the remaining series against Tampa?"
+        ),
+    ),
+    Post(
+        id="p3",
+        gold_label="Graphics",
+        text=(
+            "Subject: ray marching vs rasterization\n"
+            "I'm trying to render a signed-distance scene in real time. Should I stick "
+            "with sphere tracing or bake a voxel grid and rasterize?"
+        ),
+    ),
+    Post(
+        id="p4",
+        gold_label="Guns",
+        text=(
+            "Subject: magazine capacity limits\n"
+            "The new bill caps magazines at ten rounds. Does that apply to pistols "
+            "already owned, or only to sales after the effective date?"
+        ),
+    ),
 )
 
 
