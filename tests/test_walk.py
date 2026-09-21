@@ -137,6 +137,47 @@ def test_cutoff_skips_children_below_threshold_and_does_not_query_them():
     assert result.node_mass[b.id] == pytest.approx(0.2)
 
 
+def test_unqueried_internal_mass_is_not_absorbed():
+    tree = _tree()
+    root, a, b, a1, a2, *_ = _parts(tree)
+    result = walk_hierarchy("a post", tree, 0.3, client=_client(tree))
+    assert result.absorbed_mass[b.id] == pytest.approx(0.0)
+    assert result.absorbed_mass[root.id] == pytest.approx(result.absorbed_mass[a.id])
+    assert result.absorbed_mass[a.id] == pytest.approx(0.8)
+    assert result.absorbed_mass[a1.id] == pytest.approx(0.72)
+    assert result.node_mass[b.id] == pytest.approx(0.2)
+
+
+def test_unqueried_internal_is_not_absorbed_with_outside_choice():
+    tree = _tree()
+    root, a, b, *_ = _parts(tree)
+    none_id = outside_choice_id(root.id)
+    a_none = outside_choice_id(a.id)
+    client = ScriptedJevClient(
+        {
+            root.id: ChoiceResult(
+                choice=a.id,
+                confidence=0.8,
+                probabilities={a.id: 0.7, b.id: 0.05, none_id: 0.25},
+            ),
+            a.id: ChoiceResult(
+                choice=a.children[0].id,
+                confidence=1.0,
+                probabilities={
+                    a.children[0].id: 1.0,
+                    a.children[1].id: 0.0,
+                    a_none: 0.0,
+                },
+            ),
+        }
+    )
+    result = walk_hierarchy("post", tree, 0.1, client=client, outside_choice=True)
+    assert b.id not in result.queried
+    assert result.node_mass[b.id] == pytest.approx(0.05)
+    assert result.absorbed_mass[b.id] == pytest.approx(0.0)
+    assert result.absorbed_mass[root.id] == pytest.approx(0.7)
+
+
 def test_cutoff_one_only_descends_into_certainty():
     tree = _tree()
     root, a, b, a1, a2, b1, _b2 = _parts(tree)

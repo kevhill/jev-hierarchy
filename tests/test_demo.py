@@ -76,7 +76,7 @@ def test_outside_choice_render_shows_root_absorbed_and_share_of_covered():
         },
     )
     post = Post(id="p4", gold_label="Guns", text="x")
-    out = render_tree(post, result, outside_choice=True)
+    out = render_tree(post, result, show_coverage=True)
     assert "coverage=96.0%" in out
     news_line = next(line for line in out.splitlines() if line.startswith("News"))
     assert "100.0%" in news_line
@@ -94,13 +94,85 @@ def test_outside_choice_render_shows_root_absorbed_and_share_of_covered():
     assert "abs=" not in guns_line
 
 
-def test_render_without_outside_choice_does_not_add_coverage_header():
+def _bar_col(line: str) -> int:
+    for i, ch in enumerate(line):
+        if ch in "█░":
+            return i
+    raise AssertionError(f"no bar in {line!r}")
+
+
+def test_none_rows_align_bars_with_named_siblings():
+    news = HIERARCHY
+    rec = _node("Recreation")
+    talk = _node("Talk")
+    guns = _node("Guns")
+    result = WalkResult(
+        queried=[news.id, rec.id, talk.id],
+        node_mass={
+            news.id: 1.0,
+            rec.id: 0.02,
+            talk.id: 0.96,
+            guns.id: 0.96,
+            outside_choice_id(news.id): 0.02,
+            outside_choice_id(rec.id): 0.02,
+            outside_choice_id(talk.id): 0.0,
+        },
+        absorbed_mass={
+            news.id: 0.96,
+            rec.id: 0.0,
+            talk.id: 0.96,
+            guns.id: 0.96,
+        },
+    )
+    out = render_tree(Post(id="p4", gold_label="Guns", text="x"), result)
+    talk_line = next(line for line in out.splitlines() if "└─ Talk" in line)
+    guns_line = next(line for line in out.splitlines() if "└─ Guns" in line)
+    none_lines = [line for line in out.splitlines() if "└─ none" in line]
+    assert _bar_col(talk_line) == _bar_col(none_lines[-1])
+    assert _bar_col(guns_line) == _bar_col(none_lines[1])
+
+
+def test_render_shows_coverage_when_cutoff_skips_a_branch():
+    news = HIERARCHY
+    computer = _node("Computer")
+    graphics = _node("Graphics")
+    science = _node("Science")
+    result = WalkResult(
+        queried=[news.id, computer.id],
+        node_mass={
+            news.id: 1.0,
+            computer.id: 0.99,
+            graphics.id: 0.99,
+            science.id: 0.01,
+        },
+        absorbed_mass={
+            news.id: 0.99,
+            computer.id: 0.99,
+            graphics.id: 0.99,
+            science.id: 0.0,
+        },
+    )
+    out = render_tree(Post(id="p3", gold_label="Graphics", text="x"), result, show_coverage=True)
+    assert "coverage=99.0%" in out
+    news_line = next(line for line in out.splitlines() if line.startswith("News"))
+    assert "abs= 99.0%" in news_line
+    science_line = next(line for line in out.splitlines() if "└─ Science" in line)
+    assert re.search(r"1\.0%.*0\.0%", science_line)
+    graphics_line = next(line for line in out.splitlines() if "└─ Graphics" in line)
+    assert re.search(r"99\.0%.*100\.0%", graphics_line)
+    assert "none" not in out
+
+
+def test_render_hides_coverage_on_full_walk_without_outside_choice():
     news = HIERARCHY
     result = WalkResult(
         queried=[news.id],
         node_mass={news.id: 1.0},
         absorbed_mass={news.id: 1.0},
     )
-    post = Post(id="p4", gold_label="Guns", text="x")
-    out = render_tree(post, result, outside_choice=False)
+    out = render_tree(
+        Post(id="p4", gold_label="Guns", text="x"), result, show_coverage=False
+    )
     assert "coverage=" not in out
+    news_line = next(line for line in out.splitlines() if line.startswith("News"))
+    assert "abs=" not in news_line

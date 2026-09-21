@@ -191,13 +191,11 @@ def _label_index(root: Node) -> dict[str, str]:
     return index
 
 
-def render_tree(
-    post: Post, result: WalkResult, *, outside_choice: bool = False
-) -> str:
+def render_tree(post: Post, result: WalkResult, *, show_coverage: bool = False) -> str:
     labels = _label_index(HIERARCHY)
     queried = [labels.get(node_id, node_id) for node_id in result.queried]
     header = f"{post.id}  gold={post.gold_label}  queried={queried}"
-    if outside_choice:
+    if show_coverage:
         covered = result.absorbed_mass.get(HIERARCHY.id)
         if covered is not None:
             header += f"  coverage={covered:.1%}"
@@ -211,7 +209,7 @@ def render_tree(
         mass = result.node_mass[node.id]
         mark = " ← gold" if node.is_leaf and node.label == post.gold_label else ""
         extra = ""
-        if outside_choice:
+        if show_coverage:
             if depth == 0:
                 absorbed = result.absorbed_mass.get(node.id)
                 if absorbed is not None:
@@ -228,7 +226,7 @@ def render_tree(
         if none_id in result.node_mass:
             p = result.node_mass[none_id]
             lines.append(
-                f"{indent}  └─ {'none':<16} {_bar(p)} {p:6.1%}"
+                f"{indent}  └─ {'none':<18} {_bar(p)} {p:6.1%}"
             )
 
     rec(HIERARCHY, 0)
@@ -264,7 +262,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             client=client,
             outside_choice=args.outside_choice,
         )
-        print(render_tree(post, result, outside_choice=args.outside_choice))
+        print(
+            render_tree(
+                post,
+                result,
+                show_coverage=args.cutoff > 0 or args.outside_choice,
+            )
+        )
         print("-" * 72)
     return 0
 

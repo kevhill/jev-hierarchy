@@ -45,7 +45,8 @@ class WalkResult:
             below ``cutoff`` still get mass; their descendants are omitted.
         absorbed_mass: Path mass with outside choices omitted. A queried
             parent is the sum of its named children's absorbed mass. Leaves
-            and unqueried internals equal ``node_mass``.
+            equal ``node_mass``. Unqueried internals are 0: cutoff skipped
+            them, so they never faced an outside Choice.
         choices: Jev argmax child id (or outside-choice key) at each queried
             node.
 
@@ -98,7 +99,9 @@ def walk_hierarchy(
     probability-0 children. Path mass is the product of sibling
     probabilities from the root; it is recorded for a child even when that
     child is not expanded. ``absorbed_mass`` bubbles named-child mass up
-    and does not absorb the outside option into the parent.
+    and does not absorb the outside option into the parent. Unqueried
+    internals (below cutoff) contribute 0 absorbed mass — they were not
+    given an outside Choice.
 
     This is a tree of forced Choices, not a nested-logit / GEV model: there
     is no inclusive value, no nest-correlation parameter, and no estimated
@@ -172,9 +175,12 @@ def _fill_absorbed_mass(node: Node, result: WalkResult) -> float:
     down = result.node_mass.get(node.id)
     if down is None:
         return 0.0
-    if node.is_leaf or node.id not in result.queried:
+    if node.is_leaf:
         result.absorbed_mass[node.id] = down
         return down
+    if node.id not in result.queried:
+        result.absorbed_mass[node.id] = 0.0
+        return 0.0
     total = 0.0
     for child in node.children:
         total += _fill_absorbed_mass(child, result)

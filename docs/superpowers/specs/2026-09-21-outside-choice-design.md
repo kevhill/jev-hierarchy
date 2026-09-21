@@ -42,15 +42,16 @@ Record `node_mass[outside_choice_id(parent)] = m↓(parent) × p(none | parent)`
 
 ## Absorbed mass
 
-After the walk, `WalkResult.absorbed_mass` is path mass with outside **not** folded into parents:
+After the walk, `WalkResult.absorbed_mass` is path mass with outside **not** folded into parents. The same cutoff that skips descent also skips absorption:
 
-- named leaf, or internal node never queried: `m↑ = m↓`
+- named leaf: `m↑ = m↓` (the parent Choice already allocated that leaf, including vs `none`)
+- internal node never queried (below cutoff): `m↑ = 0` — it never faced an outside Choice
 - queried internal: `m↑(parent) = Σ m↑(named children)`
 - outside keys are absent from `absorbed_mass`
 
-Then `m↓(P) − m↑(P)` is mass that landed on some outside choice in `P`’s subtree. Local outside mass is `node_mass[outside_choice_id(P.id)]` when `P` was queried.
+Then `m↓(P) − m↑(P)` is mass that landed on some outside choice **or** on unexplored branches in `P`’s subtree. Local outside mass is `node_mass[outside_choice_id(P.id)]` when `P` was queried.
 
-Always fill `absorbed_mass` (even when `outside_choice=False`); without an outside choice it matches tree `node_mass` under the unvisited-internal convention above.
+Always fill `absorbed_mass` (even when `outside_choice=False`). With cutoff `0`, every internal is queried, so without an outside choice `m↑` still matches tree `node_mass`.
 
 ## Tests
 

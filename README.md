@@ -31,7 +31,7 @@ There is no parent pointer. Parenthood is “who listed you in `children`”. Le
 
 **`outside_choice`** injects an opt-out sibling at every queried internal node: label `none`, description `None of the other choices apply`. The key is `outside_choice_id(parent.id)` (`outside:{parent_id}`), not a taxonomy `Node.id`. Cutoff still applies only to named children; none is never recursed into. This is an extra **Choice**, not a nested-logit / GEV outside good (no inclusive value, no \(\lambda\)).
 
-`WalkResult.absorbed_mass` is path mass with none omitted: a queried parent is the sum of its named children's absorbed mass. `node_mass[parent] - absorbed_mass[parent]` is mass that landed on some none in that subtree. `result.share_of_covered(node_id, root_id)` is that node's absorbed mass as a fraction of the root's (`None` if the root absorbed nothing).
+`WalkResult.absorbed_mass` is path mass with none omitted: a queried parent is the sum of its named children's absorbed mass. Unqueried internals (below cutoff) absorb **0** — they never faced `none`. `node_mass[parent] - absorbed_mass[parent]` is mass that landed on none **or** on unexplored branches. `result.share_of_covered(node_id, root_id)` is that node's absorbed mass as a fraction of the root's (`None` if the root absorbed nothing).
 
 ### Build a tree and walk it
 
@@ -119,7 +119,7 @@ The process does not load `.env` by itself. Pass it with `uv run --env-file .env
 
 `demo.py` is a script, not part of the library. It classifies short **20 Newsgroups**-style posts with a compact tree (`News` → Computer / Recreation / Science / Talk → eight leaves) defined in that file.
 
-With `--outside-choice`, each internal Choice includes `none`. The tree print is path mass (bar + first %). The header `coverage=` and root `abs=` are absorbed mass at the root. Later columns on named branches and leaves are `share_of_covered` (of that coverage). `none` rows show path mass only. Bars are empty only at 0% and full only at 100%; 1–2% still get one block.
+Cutoff and `--outside-choice` both trim **coverage** (unexplored internals absorb 0; `none` is never absorbed). They compose. The tree print is path mass (bar + first %). Coverage columns (`coverage=` / root `abs=` / share-of-covered on named children) show when cutoff is above 0 or `--outside-choice` is on — a full walk with no opt-out has nothing to trim, so they are omitted. `none` rows appear only with `--outside-choice`. Bars are empty only at 0% and full only at 100%; 1–2% still get one block.
 
 Needs [uv](https://docs.astral.sh/uv/).
 
