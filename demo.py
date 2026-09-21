@@ -12,7 +12,13 @@ import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from jev_hierarchy import Node, TypeSafeJevClient, WalkResult, walk_hierarchy
+from jev_hierarchy import (
+    Node,
+    TypeSafeJevClient,
+    WalkResult,
+    outside_choice_id,
+    walk_hierarchy,
+)
 
 KEY_HELP = (
     "Set TYPESAFE_API_KEY (https://console.typesafe.ai/keys) and retry. "
@@ -151,11 +157,25 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         dest="post_ids",
         help="Run a subset by id (repeatable). Default: all sample posts.",
     )
+    parser.add_argument(
+        "--outside-choice",
+        action="store_true",
+        help=(
+            "Inject a none option at each internal Choice "
+            "(opt-out, not a GEV outside good)"
+        ),
+    )
     return parser.parse_args(argv)
 
 
 def _bar(p: float, width: int = 18) -> str:
-    filled = round(max(0.0, min(1.0, p)) * width)
+    p = max(0.0, min(1.0, p))
+    if p <= 0.0:
+        filled = 0
+    elif p >= 1.0:
+        filled = width
+    else:
+        filled = min(width - 1, max(1, round(p * width)))
     return "█" * filled + "░" * (width - filled)
 
 
@@ -171,13 +191,17 @@ def _label_index(root: Node) -> dict[str, str]:
     return index
 
 
-def render_tree(post: Post, result: WalkResult) -> str:
+def render_tree(
+    post: Post, result: WalkResult, *, outside_choice: bool = False
+) -> str:
     labels = _label_index(HIERARCHY)
     queried = [labels.get(node_id, node_id) for node_id in result.queried]
-    lines = [
-        f"{post.id}  gold={post.gold_label}  queried={queried}",
-        "",
-    ]
+    header = f"{post.id}  gold={post.gold_label}  queried={queried}"
+    if outside_choice:
+        covered = result.absorbed_mass.get(HIERARCHY.id)
+        if covered is not None:
+            header += f"  coverage={covered:.1%}"
+    lines = [header, ""]
 
     def rec(node: Node, depth: int) -> None:
         if node.id not in result.node_mass:
@@ -186,9 +210,26 @@ def render_tree(post: Post, result: WalkResult) -> str:
         branch = "└─ " if depth else ""
         mass = result.node_mass[node.id]
         mark = " ← gold" if node.is_leaf and node.label == post.gold_label else ""
-        lines.append(f"{indent}{branch}{node.label:<18} {_bar(mass)} {mass:6.1%}{mark}")
+        extra = ""
+        if outside_choice:
+            if depth == 0:
+                absorbed = result.absorbed_mass.get(node.id)
+                if absorbed is not None:
+                    extra = f"  abs={absorbed:6.1%}"
+            else:
+                share = result.share_of_covered(node.id, HIERARCHY.id)
+                extra = f"  {share:6.1%}" if share is not None else "       —"
+        lines.append(
+            f"{indent}{branch}{node.label:<18} {_bar(mass)} {mass:6.1%}{extra}{mark}"
+        )
         for child in node.children:
             rec(child, depth + 1)
+        none_id = outside_choice_id(node.id)
+        if none_id in result.node_mass:
+            p = result.node_mass[none_id]
+            lines.append(
+                f"{indent}  └─ {'none':<16} {_bar(p)} {p:6.1%}"
+            )
 
     rec(HIERARCHY, 0)
     return "\n".join(lines)
@@ -212,11 +253,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     client = TypeSafeJevClient(model=args.model)
     print(
         f"model={args.model}  cutoff={args.cutoff}  "
+        f"outside_choice={args.outside_choice}  "
         "recursive Choice over children\n"
     )
     for post in selected:
-        result = walk_hierarchy(post.text, HIERARCHY, args.cutoff, client=client)
-        print(render_tree(post, result))
+        result = walk_hierarchy(
+            post.text,
+            HIERARCHY,
+            args.cutoff,
+            client=client,
+            outside_choice=args.outside_choice,
+        )
+        print(render_tree(post, result, outside_choice=args.outside_choice))
         print("-" * 72)
     return 0
 

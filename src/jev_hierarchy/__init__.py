@@ -8,7 +8,7 @@ from .jev import (
     ScriptedJevClient,
     TypeSafeJevClient,
 )
-from .walk import WalkResult, walk_hierarchy
+from .walk import WalkResult, outside_choice_id, walk_hierarchy
 
 __all__ = [
     "ChoiceResult",
@@ -20,5 +20,6 @@ __all__ = [
     "WalkResult",
     "child_criteria",
     "node_id",
+    "outside_choice_id",
     "walk_hierarchy",
 ]
