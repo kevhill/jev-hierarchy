@@ -1,31 +1,33 @@
 # Recursive Jev classification over a topic tree
 
-TypeSafe [Jev](https://docs.typesafe.ai/) is a System One model: you give it **state** (a post) and typed **questions**, and it returns a forced **Choice** — one winner, a probability on every option, and a confidence. It does not generate text.
+TypeSafe [Jev](https://docs.typesafe.ai/) is a System One model: you give it **state** and typed **questions**, and it returns a forced **Choice** — one winner, a probability on every option, and a confidence. It does not generate text.
 
-This demo asks those Choices *down a tree* instead of over a flat label set.
+This repo walks those Choices **down a tree** instead of over a flat label set. The walk is generic. The 20 Newsgroups files are only one example of how to call it.
 
-## What you are classifying
+## Usage
 
-The **state** is a short newsgroup-style post (`posts.py`). It is not part of the tree.
+```text
+walk_hierarchy(state, hierarchy, cutoff, *, client)
+```
 
-The **hierarchy** is a rooted tree of frozen `Node`s (`hierarchy.py`). A node is a category:
+**`state`** is whatever Jev should judge. The walker does not interpret it. It is forwarded unchanged on every Choice, the same way the TypeSafe API accepts state: a string, a JSON object, or an array. A support ticket, an email thread, a structured record, or a newsgroup post are all valid.
+
+**`hierarchy`** is a rooted tree of frozen `Node`s. A node is a category, not the document:
 
 | Field | Role |
 | --- | --- |
-| `label` | Human name (`Science`, `Space`, …). Shown in the CLI. |
+| `label` | Human name. Shown when you print the tree. |
 | `description` | What the category means. This is what Jev reads. |
 | `children` | Ordered siblings. Empty ⇒ a **leaf**. |
 | `id` | SHA-256 of `{"description", "label"}` (canonical JSON). Not passed in; derived so two nodes with the same name and meaning share an id, and a wording change gets a new id. |
 
 There is no parent pointer. Parenthood is “who listed you in `children`”. Leaves are never sent to Jev. Internal nodes exist only so Jev can be forced to pick among their children.
 
-The bundled tree is a compact **20 Newsgroups** cut: `News` → Computer / Recreation / Science / Talk → eight leaves.
+**`cutoff`** is a walk policy, not a field on `Node`. Compare it to sibling probability `p(child | parent)`.
 
-## How the walk works
+**`client`** is how you talk to Jev (`TypeSafeJevClient` or a fake in tests).
 
-```text
-walk_hierarchy(state, hierarchy, cutoff, *, client)
-```
+The walk:
 
 1. Start at the root. Path mass of the root is `1.0`.
 2. If the node is a leaf, stop.
@@ -43,7 +45,7 @@ Two different “probabilities”:
 
 The walk does **not** follow only the winner. Argmax is recorded; descent is cutoff.
 
-## API key
+### API key
 
 Do not commit the key. Put it in **`TYPESAFE_API_KEY`**. Create one at https://console.typesafe.ai/keys
 
@@ -57,19 +59,25 @@ Or a gitignored `.env` in this directory:
 TYPESAFE_API_KEY=...
 ```
 
-```bash
-uv run --env-file .env python demo.py
-```
+The process does not load `.env` by itself. Pass it with `uv run --env-file .env …`. Unit tests never need a key. `tests/test_live.py` skips until the variable is set.
 
-The process does not load `.env` by itself. Unit tests never need a key. `tests/test_live.py` skips until the variable is set.
+## Demo
 
-## Setup
+The example in this repo classifies short **20 Newsgroups**-style posts.
+
+- `hierarchy.py` — compact tree: `News` → Computer / Recreation / Science / Talk → eight leaves
+- `posts.py` — sample posts plus a gold **label** (not a hash) so the CLI can mark the expected leaf
+- `demo.py` — CLI that calls `walk_hierarchy` with each post as `state`
 
 Needs [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync --group dev
 uv run pytest
-uv run python demo.py --cutoff 0
-uv run python demo.py --cutoff 0.3 --post p1
+uv run --env-file .env python demo.py --cutoff 0
+uv run --env-file .env python demo.py --cutoff 0.3 --post p1
 ```
+
+## License
+
+MIT. See [LICENSE](LICENSE).

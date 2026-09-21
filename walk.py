@@ -47,8 +47,8 @@ def _visit(
         state,
         node_id=node.id,
         instructions=(
-            f"Which child of '{node.label}' best describes this post? "
-            "Pick the one option that fits the actual topic."
+            f"Which child of '{node.label}' best describes this input? "
+            "Pick the one option that fits."
         ),
         criteria=child_criteria(node),
     )
